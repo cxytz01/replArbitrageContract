@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract ArbitrageBot is Ownable, ReentrancyGuard {
+contract ArbitrageBot is Ownable {
     error InvalidAddress(address _address);
     error InsufficientAmount();
     error YouWillGoingToLoseMoney();
