@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "./Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract ArbitrageBot is Ownable {
     error InvalidAddress(address _address);
@@ -15,11 +15,14 @@ contract ArbitrageBot is Ownable {
     event Transfer(address indexed from, address indexed to, uint value, string token);
     event Arbitrage(uint filBeforeArbitrage, uint filAfterArbitrage);
 
+    IUniswapV3PoolState public uniswapPool;
     IUniswapSwapHelper public uniSwapHelper;
     IRepl public replAuction;
     IERC20 public pFIL;
+    IWPFIL public wpFIL;
+    // uint8 public profitRate;
 
-    constructor(address _swapContract, address _replAuction, address _pFIL) Ownable(msg.sender) payable {
+    constructor(address _swapContract, address _replAuction, address _pFIL, address _wpFIL, address _uniswapPool) Ownable(msg.sender) payable {
         if (_swapContract == address(0) || _replAuction == address(0) || _pFIL == address(0)) {
             revert InvalidAddress(address(0));
         }
@@ -27,6 +30,8 @@ contract ArbitrageBot is Ownable {
         uniSwapHelper = IUniswapSwapHelper(_swapContract);
         replAuction = IRepl(_replAuction);
         pFIL = IERC20(_pFIL);
+        wpFIL = IWPFIL(_wpFIL);
+        uniswapPool = IUniswapV3PoolState(_uniswapPool);
     }
 
     fallback() external payable {
@@ -72,7 +77,20 @@ contract ArbitrageBot is Ownable {
         FILAmount = address(this).balance;
         pFILAmount = pFIL.balanceOf(owner());
     }
-    
+
+    /**
+     * @notice get FIL/pFIL pair from uniswap and repl 
+     * @return uniswapPair
+     * @return replPair 
+     */
+    function getPairPrice() public view returns (uint uniswapPair, uint replPair) {
+        // get pool price FIL/pFIL
+        uniswapPair = getPoolPrice();
+
+        // get auction price FIL/pFIL
+        replPair = getAuctionPrice();
+    }
+  
     /**
      * @notice call uniSwapHelper's function: swapToPFIL and replAuction's function auctionBidded in one transaction, make sure it is atomic. 
     */
@@ -86,7 +104,11 @@ contract ArbitrageBot is Ownable {
     payable
     onlyOwner
     {
-        if (msg.value >= _FILamount) {
+        // if (msg.value >= _FILamount) {
+        //     revert YouWillGoingToLoseMoney();
+        // }
+        (uint uniswapPoolPair, uint replPair) = getPairPrice();
+        if (uniswapPoolPair >= replPair) {
             revert YouWillGoingToLoseMoney();
         }
 
@@ -94,6 +116,25 @@ contract ArbitrageBot is Ownable {
         replAuction.auctionBidded(_FILamount, pFILAmount, _winner);
 
         emit Arbitrage(msg.value, _FILamount);
+    }
+
+    /**
+     * @notice get FIL/pFIL from uniswap pool
+     * https://github.com/Project-pFIL/pFIL-contracts/blob/feat/arbitrage-helper/scripts/arbitrage-helper.ts#L18 
+     */
+    function getPoolPrice() internal view returns (uint) {
+        (uint160 sqrtPriceX96, , , , , ,) = uniswapPool.slot0();
+        uint pFILperwpFIL_BN = wpFIL.PFILPerToken();
+        // https://ethereum.stackexchange.com/questions/98685/computing-the-uniswap-v3-pair-price-from-q64-96-number
+        return (pFILperwpFIL_BN*1e18)/(uint(sqrtPriceX96)*(uint(sqrtPriceX96))*(1e18) >> (96 * 2));
+    }
+
+    /**
+     * @notice get FIL/pFIL from repl auction
+     * https://github.com/Project-pFIL/pFIL-contracts/blob/feat/arbitrage-helper/scripts/arbitrage-helper.ts#L27
+     */
+    function getAuctionPrice() internal view returns (uint) {
+        return replAuction.getPrice();
     }
 }
 
