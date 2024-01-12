@@ -13,7 +13,7 @@ contract ArbitrageBot is Ownable {
 
     event Deposit(string func, address sender, uint value, bytes data);
     event Transfer(address indexed from, address indexed to, uint value, string token);
-    event Arbitrage(uint filBeforeArbitrage, uint filAfterArbitrage);
+    event Arbitrage(address indexed from, uint minpFilWantToSwap, uint pFilSwap, uint filBidded);
 
     IUniswapV3PoolState public uniswapPool;
     IUniswapSwapHelper public uniSwapHelper;
@@ -85,7 +85,7 @@ contract ArbitrageBot is Ownable {
      */
     function getPairPrice() public view returns (uint uniswapPair, uint replPair) {
         // get pool price FIL/pFIL
-        uniswapPair = getPoolPrice();
+        (uniswapPair,) = getPoolPrice();
 
         // get auction price FIL/pFIL
         replPair = getAuctionPrice();
@@ -95,38 +95,38 @@ contract ArbitrageBot is Ownable {
      * @notice call uniSwapHelper's function: swapToPFIL and replAuction's function auctionBidded in one transaction, make sure it is atomic. 
     */
     function arbitrageSwap(
-        uint _minAmount,
-        uint160 _sqrtPriceLimitX96,
-        uint _FILamount,
-        address _winner
+        uint _minPFILToSwap,
+        uint _FILamount
     )
     external
     payable
     onlyOwner
     {
-        // if (msg.value >= _FILamount) {
-        //     revert YouWillGoingToLoseMoney();
-        // }
-        (uint uniswapPoolPair, uint replPair) = getPairPrice();
+        (uint uniswapPoolPair,uint replPair) = getPairPrice();
         if (uniswapPoolPair >= replPair) {
             revert YouWillGoingToLoseMoney();
         }
 
-        uint pFILAmount = uniSwapHelper.swapToPFIL(_minAmount, _sqrtPriceLimitX96);
-        replAuction.auctionBidded(_FILamount, pFILAmount, _winner);
+        uint pFILAmount = uniSwapHelper.swapToPFIL(_minPFILToSwap, 0);
+        (,,,,uint auctionId) = replAuction.auctionInfo();
+        replAuction.buy(_FILamount, auctionId);
 
-        emit Arbitrage(msg.value, _FILamount);
+        if (msg.value <= _FILamount) {
+            revert YouWillGoingToLoseMoney();
+        }
+
+        emit Arbitrage(msg.sender, _minPFILToSwap, pFILAmount, _FILamount);
     }
 
     /**
      * @notice get FIL/pFIL from uniswap pool
      * https://github.com/Project-pFIL/pFIL-contracts/blob/feat/arbitrage-helper/scripts/arbitrage-helper.ts#L18 
      */
-    function getPoolPrice() internal view returns (uint) {
+    function getPoolPrice() internal view returns (uint, uint160) {
         (uint160 sqrtPriceX96, , , , , ,) = uniswapPool.slot0();
         uint pFILperwpFIL_BN = wpFIL.PFILPerToken();
         // https://ethereum.stackexchange.com/questions/98685/computing-the-uniswap-v3-pair-price-from-q64-96-number
-        return (pFILperwpFIL_BN*1e18)/(uint(sqrtPriceX96)*(uint(sqrtPriceX96))*(1e18) >> (96 * 2));
+        return ((pFILperwpFIL_BN*1e18)/(uint(sqrtPriceX96)*(uint(sqrtPriceX96))*(1e18) >> (96 * 2)), sqrtPriceX96);
     }
 
     /**

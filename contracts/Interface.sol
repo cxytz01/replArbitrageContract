@@ -4,18 +4,22 @@ pragma solidity ^0.8.20;
 // https://github.com/Project-pFIL/pFIL-contracts/blob/main/contracts/Repl.sol#L17
 interface IRepl {
     /**
-     * @notice when auction sold FIL, will pay FIL to the winner, and burn the amount of pFIL
-     * @param _FILamount the amount of FIL sold by auction
-     * @param _pFILAmount the amount of pFIL paid for the FIL
-     * @param _winner the winner address
-     */
-    function auctionBidded(uint _FILamount, uint _pFILAmount, address _winner) external;
+     * @notice when user want to buy FIL with pFIL, the price unit is pFIL/FIL
+     * @param _amount the amount of FIL want to buy
+     * @param _id current auction id
+     */ 
+    function buy(uint _amount, uint _id) external;
 
     /**
      * @dev Price refers to how much pFIL is needed to exchange 1 FIL
      * @return current price of the FIL; pFIL / FIL
      */
     function getPrice() external view returns (uint);
+
+    /**
+     * auctionInfo getter
+     */
+    function auctionInfo() external view returns (uint, uint, uint, uint, uint);
 }
 
 // https://github.com/Project-pFIL/pFIL-contracts/blob/main/contracts/wPFIL.sol#L101
