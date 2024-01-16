@@ -107,7 +107,7 @@ contract ArbitrageBot is Ownable {
             revert YouWillGoingToLoseMoney();
         }
 
-        uint pFILAmount = uniSwapHelper.swapToPFIL{value: msg.value}(_minPFILToSwap, 0);
+        uint pFILAmount = uniSwapHelper.swapToPFIL{value: msg.value}(_minPFILToSwap, 0, 0);
         (,,,,uint auctionId) = replAuction.auctionInfo();
         replAuction.buy(_FILamount, auctionId);
 

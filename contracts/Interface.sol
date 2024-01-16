@@ -31,9 +31,9 @@ interface IWPFIL {
     function PFILPerToken() external view returns (uint);
 }
 
-// https://github.com/Project-pFIL/pFIL-contracts/blob/main/contracts/periphery/UniswapSwapHelper.sol#L34
+// https://github.com/Project-pFIL/pFIL-contracts/blob/04def298b36450f59024d69679218be34f692b74/contracts/periphery/UniswapSwapHelper.sol#L88C2-L88C114
 interface IUniswapSwapHelper {
-    function swapToPFIL(uint minAmount, uint160 sqrtPriceLimitX96) external payable returns(uint);
+    function swapToPFIL(uint payAmount, uint minAmount, uint160 sqrtPriceLimitX96) external payable returns(uint);
 }
 
 // https://github.com/Uniswap/v3-core/blob/main/contracts/interfaces/pool/IUniswapV3PoolState.sol#L21
